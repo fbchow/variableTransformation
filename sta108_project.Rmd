@@ -1,0 +1,314 @@
+---
+title: "STA108 Final Project"
+author: "Fanny Chow"
+date: "Spring 2015"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE, comment = NA, comment="", echo=FALSE, prompt=FALSE)
+```
+
+###Introduction    
+  During the early 1960’s, the beginnings of the modern environmental movement raised public awareness of harm to the environment caused by man. At the same time, many Americans began moving from urban areas to suburban areas, resulting in low-density, car-dependent communities. Citizens and scientists alike began questioning the cumulative effects of automobile dependency on air pollution and its negative impacts on human health.   
+  
+Amongst the many variables that affect air quality and health, there are many confounding and nonconfounding variables, which complicate analysis of the connection between pollution and health. Using 60 U.S. Standard Metropolitan Statistical Areas (SMSA) data obtained form the years 1959-1961, our study focuses on a major epidemiological question: does air pollution have effect on mortality?  
+
+```{r,echo=FALSE, comment=NA,}
+# load the data
+library(gdata)
+setwd("/Users/fanny/Desktop/Fanny's Stuff/spring2015/STA108/project")
+mortality_data = read.xls("mortality.xls")
+
+mortality_data <- cbind(mortality_data, NONWHITE_cuberoot = mortality_data$NONWHITE^(1/3), 
+                        POOR_cuberoot = mortality_data$POOR^(1/3), lnNOX = log(mortality_data$NOX), 
+                        lnSO2 = log(mortality_data$SO2))
+
+mortality_transformed <- data.frame(cbind(PRECIP = mortality_data$PRECIP, EDUC = mortality_data$EDUC, 
+                               NONWHITE = mortality_data$NONWHITE_cuberoot, POOR = mortality_data$POOR_cuberoot, 
+                               NOX = mortality_data$lnNOX, SO2 = mortality_data$lnSO2, MORTALITY = mortality_data$MORTALITY))
+
+```
+***  
+###Fitting the Model
+
+#####Transformation  
+Since the variables NOX and SO2 are skewed, we transformed them by using the natural logarithm. And since the variables nonwhite and poor are both skewed, we transformed them using a cube root.  
+
+
+#####Examining Basic Summary Statistics  
+The histograms of the predictors demonstrtate that all the independent variables appear approximately normal with the exception of the mean number of school years by the people 25 and over. The boxplot demonstrates that the predictors precipitation and poverty (the percentage of population with incomes below $3000) contain outliers.  
+
+```{r,echo=FALSE}
+
+par(mfrow = c(2,3))
+hist(mortality_transformed$PRECIP, main = "Mean Annual Precipitation", xlab = "")
+hist(mortality_transformed$EDUC, main = "Mean # school years by people 25+", xlab = "")
+hist(mortality_transformed$NONWHITE, main = "Nonwhite Population %", xlab = "")
+hist(mortality_transformed$POOR, main = "% of Pop. w/ Income <3000", xlab = "")
+hist(mortality_transformed$NOX, main = "Nitrogen(NOX) levels", xlab = "")
+hist(mortality_transformed$SO2, main = "Sulphur Dioxide (SO2) levels", xlab = "")
+
+
+boxplot(mortality_transformed$PRECIP, main = "Mean Annual Precipitation")
+boxplot(mortality_transformed$EDUC, main = "Mean # school years by people 25+")
+boxplot(mortality_transformed$NONWHITE, main = "Nonwhite Population %")
+boxplot(mortality_transformed$POOR, main = "% of Pop. w/ Income <3000")
+boxplot(mortality_transformed$NOX, main = "Nitrogen(NOX) levels")
+boxplot(mortality_transformed$SO2, main = "Sulphur Dioxide (SO2) levels")
+```
+
+
+#####Examining Pairwise Corrlelation Information  
+Based on the matrix plot of the mortality data, with the exception of NOX levels, it seems that there is an approxmiately linear relationship between the dependent variable (mortality) and the independent variables (precipitation, education, nonwhite, poor, NOX, SO2).   
+
+```{r,echo=FALSE}
+plot(mortality_transformed) # matrix plot 
+```
+
+#####Examining Multicollinearity Issues  
+Looking at the correlation matrix, there does not appear to be any major problems with multicollinearity since the quantities are not significantly high; they are approximately less than 0.7.     
+
+```{r}
+cor(mortality_transformed) # correlation matrix
+mod <- lm(mortality_transformed$MORTALITY~., data = mortality_transformed) # regression model 
+```
+
+
+#####Estimating Parameters      
+Model: $Y_i$ = $\beta_0$ + $\beta_1$$x_1$ + $\beta_2$$x_2$ + $\beta_3$$x_3$ + $\beta_4$$x_4$ + $\beta_5$$x_5$ + $\beta_6$$x_6$  
+
+Fitted Regression: $\hat{Y}$ = 980.475 + 2.375$x_1$ + -19.100$x_2$ + 49.905$x_3$ + -31.098$x_4$ + 10.104$x_5$ + 8.031$x_6$
+
+From the basic estimate of the parameters and standard errors, we observe that education and poverty are negatively associated with mortality. The Multiple R-Squared value 0.6985 indicates that about 69.85% of the variability in mortality rates (Y) can be explained by its regression on the predictors: precipitation($x_1$), education($x_2$), nonwhite($x_3$), poor($x_4$), NOX(S$x_5$), SO2($x_6$).  
+```{r}
+anova(mod) #anova table
+summary(mod) # estimate of parameters & standard error
+```
+***  
+###Regression Model Diagnostics  
+In order to perform multiple linear regression, we must first ensure that the data satisfies basic assumptions of the regression model. The errors must have:  
+* approximately equal variances  
+* be normally distributed.   
+
+The plot of the residuals against fitted values demonstrates the residuals are approximately normally distributed.  
+```{r,echo=FALSE}
+plot(mortality_transformed$MORTALITY~mod$fitted, xlab = "Fitted Y", ylab = "Observed Y", main = "Observed Y against fitted Y Plot")
+```
+
+We use the plot of residuals against predictor variables to check the model assumptions: the regression function is linear, the errors have constant variance, and the model fits all but 1 or more outlying observations.  
+
+
+```{r}
+res <- mod$res
+
+par(mfrow=c(2,3))
+plot(res~mortality_transformed$PRECIP, xlab = "Mean Annual Precipitation", ylab = "Residuals")
+plot(res~mortality_transformed$EDUC, xlab = "Mean school years by persons over 25", ylab = "Residuals")
+plot(res~mortality_transformed$NONWHITE, xlab = "Nonwhite Population Percentage", ylab = "Residuals")
+plot(res~mortality_transformed$POOR, xlab = "Percentage of population with income <3000", ylab = "Residuals" )
+plot(res~mortality_transformed$NOX, xlab = "Nitrogren (NOX) levels", ylab = "Residuals")
+plot(res~mortality_transformed$SO2, xlab = "Sulphur Dioxide (SO2) levels", ylab = "Residuals")
+```
+
+
+The histogram of residuals resembles the bell curve of a normal distribution.   
+```{r}
+par(mfrow = c(1,1))
+hist(mod$res, main = "Histogram of Residuals", xlab = "Residuals") #histogram
+
+```
+
+The normal QQ plot is close to the 45 degree line, which demonstrates the approximate normal distribution of the errors.  
+```{r}
+qqnorm(mod$res, main = "Normal Probability Plot of Residuals")
+qqline(mod$res)
+```
+
+***  
+
+###Is a Quadratic Model Better?  
+We suspected a nonlinear, quadratic relationship between mortality and NOX levels which led us to fit the model with a square term for NOX. After performing this modification, it seems that the fitting the linear model was still the better model because the Mallow's CP for the best linear model according to all subsets regression is lower than the Mallow's CP value for the best quadratic model. Here are the results from our test:   
+
+```{r,echo=FALSE}
+library(leaps)
+xbar_NOX <- mean(mortality_transformed$NOX)
+NOX_st <- mortality_transformed$NOX - xbar_NOX 
+
+mortality_transformed2 <- data.frame(cbind(PRECIP = mortality_data$PRECIP, EDUC = mortality_data$EDUC, 
+                                          NONWHITE = mortality_data$NONWHITE_cuberoot, POOR = mortality_data$POOR_cuberoot, 
+                                          NOX_st = NOX_st, NOX_st2 = NOX_st^2,SO2 = mortality_data$lnSO2, MORTALITY = mortality_data$MORTALITY))
+
+mod2 <- lm(mortality_transformed2$MORTALITY~., data = mortality_transformed2)
+
+summary(regsubsets(mortality_transformed2$MORTALITY~., data=mortality_transformed2, nbest=1, nvmax=7))
+```
+
+Corresponding CP Values:  
+```{r}
+summary(regsubsets(mortality_transformed2$MORTALITY~., data=mortality_transformed2, nbest=1, nvmax=7))$cp
+# 
+# plot(regsubsets(mortality_transformed2$MORTALITY~., data=mortality_transformed2, nbest=1, nvmax=7), scale='adjr2')
+```
+Corresponding Visualization of All Subsets with NOX Squared Predictor:  
+```{r}
+plot(regsubsets(mortality_transformed2$MORTALITY~., data=mortality_transformed2, nbest=1, nvmax=7), scale='Cp')
+```
+
+
+
+***  
+###Ommitting Variables with Stepwise Regression  
+
+######All Subsets Regression
+According to all subsets regression, both the variables percentage of the population with income under $3000 and the NOX level should be dropped in order to improve the precision of the model. The models that contain both poverty and NOX variables have the highest Mallows CP values.  
+
+```{r,echo=FALSE}
+library(leaps)
+summary(regsubsets(mortality_transformed$MORTALITY~., data=mortality_transformed, nbest=1, nvmax=7))  
+```
+The corresponding CP Values:  
+```{r}
+summary(regsubsets(mortality_transformed$MORTALITY~., data=mortality_transformed, nbest=1, nvmax=7))$cp
+# 
+# plot(regsubsets(mortality_transformed$MORTALITY~., data=mortality_transformed, nbest=1, nvmax=7), scale='Cp')
+```
+
+
+
+#####Stepwise Transformation  
+The results from both stepwise regression and all subsets regression are identical. The stepwise transformation indicate that both poverty and NOX variables could be dropped to improve the model.  
+```{r,echo=FALSE}
+X1 <- mortality_transformed$PRECIP
+X2 <- mortality_transformed$EDUC
+X3 <- mortality_transformed$NONWHITE
+X4 <- mortality_transformed$POOR
+X5 <- mortality_transformed$NOX
+X6 <- mortality_transformed$SO2
+
+#step
+step(object=lm(mortality_transformed$MORTALITY~1,data=mortality_transformed),direction='forward',scope=~X1+X2+X3+X4+X5+X6, trace = 0)
+```
+
+
+***  
+###Examining the Improved Model  
+Model: $Y_i$ = $\beta_0$ + $\beta_1$$x_1$ + $\beta_2$$x_2$ + $\beta_3$$x_3$ + $\beta_6$$x_6$
+
+Fitted Regression: $\hat{Y}$ = 883.0325 + 1.8997 $x_1$ + -15.2159$x_2$ + 49.4012$x_3$ + 14.9480 $x_6$  
+
+Fitted Regression: $\hat{Y}$ = 883.0325 + 1.8997(PRECIP) + -15.2159(EDUC) + 49.4012(NONWHITE) + 14.9480(SO2)  
+```{r}
+X1 <- mortality_transformed$PRECIP
+X2 <- mortality_transformed$EDUC
+X3 <- mortality_transformed$NONWHITE
+# X4 <- mortality_transformed$POOR
+# X5 <- mortality_transformed$NOX
+X6 <- mortality_transformed$SO2
+best_model =lm(formula = mortality_transformed$MORTALITY ~ X3 + X2 + X6 + 
+    X1, data = mortality_transformed)
+summary(best_model)
+```
+
+
+***  
+###Summary of Findings    
+
+From our analysis, we conclude that pollution affects mortality rates. 
+
+Higher SO2 levels are associated with higher mortality rates. Aside from pollution, demographics, such as race and education, also influence mortality rates. It appears that race, the percentage of the population that is nonwhite in 1960, is associated with mortality rates. There is evidence that the predictor education (median number of school years completed by persons of age 25 or over) is negatively associated with mortality. This may be reflective of the fact that well-educated nonwhite individuals in the 1960's are often wealthier and live in suburbs farther from highways and factories, areas subject to less industrial pollution or automobile exhaust.  
+
+Since there are so many confounding variables that influence mortality and human health, it is difficult to solely isolate pollution as a leading cause of mortality. Further analysis is needed to expand on the inferences developed from this data set. We recommend seeking Census Bureau data on communities of low-income and people of color and analyzing the corresponding mortality rates and pollution (SO2 and NOX) levels in those regions. With the passing of the Clean Air Act in 1970, it would also be interesting to analyze mortality rates before and after regulations on toxic air pollutants. 
+
+*** 
+
+Appendix
+```
+# load the data
+library(gdata)
+setwd("~/Desktop/STA108/project")
+mortality_data = read.xls("mortality.xls")
+mortality_data <- cbind(mortality_data, NONWHITE_cuberoot = mortality_data$NONWHITE^(1/3), 
+                        POOR_cuberoot = mortality_data$POOR^(1/3), lnNOX = log(mortality_data$NOX), 
+                        lnSO2 = log(mortality_data$SO2))
+
+mortality_transformed <- data.frame(cbind(PRECIP = mortality_data$PRECIP, EDUC = mortality_data$EDUC, 
+                               NONWHITE = mortality_data$NONWHITE_cuberoot, POOR = mortality_data$POOR_cuberoot, 
+                               NOX = mortality_data$lnNOX, SO2 = mortality_data$lnSO2, MORTALITY = mortality_data$MORTALITY))
+plot(mortality_transformed) # matrix plot 
+
+#Examining Multicollinearity Issues  
+cor(mortality_transformed) # correlation matrix
+mod <- lm(mortality_transformed$MORTALITY~., data = mortality_transformed) # regression model 
+
+#Estimating Parameters      
+anova(mod) #anova table
+summary(mod) # estimate of parameters & standard error
+###Regression Model Diagnostics  
+plot(mortality_transformed$MORTALITY~mod$fitted, xlab = "Fitted Y", ylab = "Observed Y", main = "Observed Y against fitted Y Plot")
+res <- mod$res
+par(mfrow=c(2,3))
+plot(res~mortality_transformed$PRECIP, xlab = "Mean Annual Precipitation", ylab = "Residuals")
+plot(res~mortality_transformed$EDUC, xlab = "Mean school years by persons over 25", ylab = "Residuals")
+plot(res~mortality_transformed$NONWHITE, xlab = "Nonwhite Population Percentage", ylab = "Residuals")
+plot(res~mortality_transformed$POOR, xlab = "Percentage of population with income <3000", ylab = "Residuals" )
+plot(res~mortality_transformed$NOX, xlab = "Nitrogren (NOX) levels", ylab = "Residuals")
+plot(res~mortality_transformed$SO2, xlab = "Sulphur Dioxide (SO2) levels", ylab = "Residuals")
+
+par(mfrow = c(1,1))
+hist(mod$res, main = "Histogram of Residuals", xlab = "Residuals") #histogram
+qqnorm(mod$res, main = "Normal Probability Plot of Residuals")
+qqline(mod$res)
+
+
+###Is a Quadratic Model Better?  
+library(leaps)
+xbar_NOX <- mean(mortality_transformed$NOX)
+NOX_st <- mortality_transformed$NOX - xbar_NOX 
+mortality_transformed2 <- data.frame(cbind(PRECIP = mortality_data$PRECIP, EDUC = mortality_data$EDUC, 
+                                          NONWHITE = mortality_data$NONWHITE_cuberoot, POOR = mortality_data$POOR_cuberoot, 
+                                          NOX_st = NOX_st, NOX_st2 = NOX_st^2,SO2 = mortality_data$lnSO2, MORTALITY = mortality_data$MORTALITY))
+
+mod2 <- lm(mortality_transformed2$MORTALITY~., data = mortality_transformed2)
+summary(regsubsets(mortality_transformed2$MORTALITY~., data=mortality_transformed2, nbest=1, nvmax=7))
+summary(regsubsets(mortality_transformed2$MORTALITY~., data=mortality_transformed2, nbest=1, nvmax=7))$cp
+
+###Ommitting Variables with Stepwise Regression  
+######All Subsets Regression
+library(leaps)
+summary(regsubsets(mortality_transformed$MORTALITY~., data=mortality_transformed, nbest=1, nvmax=7))
+summary(regsubsets(mortality_transformed$MORTALITY~., data=mortality_transformed, nbest=1, nvmax=7))$cp
+
+####Stepwise Transformation  
+X1 <- mortality_transformed$PRECIP
+X2 <- mortality_transformed$EDUC
+X3 <- mortality_transformed$NONWHITE
+X4 <- mortality_transformed$POOR
+X5 <- mortality_transformed$NOX
+X6 <- mortality_transformed$SO2
+
+#step
+step(object=lm(mortality_transformed$MORTALITY~1,data=mortality_transformed),direction='forward',scope=~X1+X2+X3+X4+X5+X6, trace = 0)
+
+###Revisiting the Linear Model  
+par(mfrow = c(2,3))
+hist(mortality_transformed$PRECIP, main = "Mean Annual Precipitation", xlab = "")
+hist(mortality_transformed$EDUC, main = "Mean # school years by people 25+", xlab = "")
+hist(mortality_transformed$NONWHITE, main = "Nonwhite Population %", xlab = "")
+hist(mortality_transformed$POOR, main = "% of Pop. w/ Income <3000", xlab = "")
+hist(mortality_transformed$NOX, main = "Nitrogen(NOX) levels", xlab = "")
+hist(mortality_transformed$SO2, main = "Sulphur Dioxide (SO2) levels", xlab = "")
+boxplot(mortality_transformed$PRECIP, main = "Mean Annual Precipitation")
+boxplot(mortality_transformed$EDUC, main = "Mean # school years by people 25+")
+boxplot(mortality_transformed$NONWHITE, main = "Nonwhite Population %")
+boxplot(mortality_transformed$POOR, main = "% of Pop. w/ Income <3000")
+boxplot(mortality_transformed$NOX, main = "Nitrogen(NOX) levels")
+boxplot(mortality_transformed$SO2, main = "Sulphur Dioxide (SO2) levels")
+```
+
+
+
+
+
+
+
